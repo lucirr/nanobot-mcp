@@ -165,6 +165,40 @@ nanobot agent -m "Multiply 7 and 8 using the multiply tool"
 
 서버가 정상 동작하는지 curl로 직접 테스트할 수 있습니다:
 
+MCP는 JSON-RPC를 사용해서 클라이언트와 서버가 통신합니다:
+```
+  # nanobot이 MCP 서버에 도구 호출
+  Request: {
+    "jsonrpc": "2.0",
+    "method": "tools/call",
+    "params": {
+      "name": "get_weather",
+      "arguments": {"location": "Seoul"}
+    },
+    "id": 123
+  }
+
+  # MCP 서버가 응답
+  Response: {
+    "jsonrpc": "2.0",
+    "result": {
+      "content": [{"type": "text", "text": "15°C, sunny"}]
+    },
+    "id": 123
+  }
+
+# request
+  ┌──────────┬──────────────────┬───────────────────────────────────────────────┐
+  │   레벨   │       필드       │                       의미                        │
+  ├──────────┼──────────────────┼────────────────────────────────────────────────┤
+  │ JSON-RPC │ method           │ MCP 프로토콜의 메서드 (tools/call, tools/list 등)   │
+  ├──────────┼──────────────────┼────────────────────────────────────────────────┤
+  │ MCP      │ params.name      │ 실행할 도구 이름 (get_weather, read_file 등)        │
+  ├──────────┼──────────────────┼────────────────────────────────────────────────┤
+  │ 도구      │ params.arguments │ 도구에 전달할 실제 데이터                            │
+  └──────────┴──────────────────┴────────────────────────────────────────────────┘
+```
+
 ### 1. Health Check
 ```bash
 curl http://localhost:8080/
