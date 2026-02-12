@@ -46,8 +46,9 @@ class AgentLoop:
         cron_service: "CronService | None" = None,
         restrict_to_workspace: bool = False,
         session_manager: SessionManager | None = None,
+        mcp_config: "MCPConfig | None" = None,
     ):
-        from nanobot.config.schema import ExecToolConfig
+        from nanobot.config.schema import ExecToolConfig, MCPConfig
         from nanobot.cron.service import CronService
         self.bus = bus
         self.provider = provider
@@ -71,7 +72,11 @@ class AgentLoop:
             exec_config=self.exec_config,
             restrict_to_workspace=restrict_to_workspace,
         )
-        
+
+        # MCP manager (import here to avoid circular dependency)
+        from nanobot.mcp.manager import MCPManager
+        self.mcp_manager = MCPManager(mcp_config or MCPConfig())
+
         self._running = False
         self._register_default_tools()
     
@@ -109,6 +114,9 @@ class AgentLoop:
     
     async def run(self) -> None:
         """Run the agent loop, processing messages from the bus."""
+        # Initialize MCP before starting the loop
+        await self._initialize_mcp()
+
         self._running = True
         logger.info("Agent loop started")
         
@@ -136,6 +144,23 @@ class AgentLoop:
             except asyncio.TimeoutError:
                 continue
     
+    async def _initialize_mcp(self) -> None:
+        """Initialize MCP connections and register tools."""
+        try:
+            await self.mcp_manager.initialize()
+
+            # Register MCP tools
+            for tool in self.mcp_manager.get_tools():
+                self.tools.register(tool)
+
+            if self.mcp_manager.get_tools():
+                logger.info(
+                    f"Registered {len(self.mcp_manager.get_tools())} MCP tools"
+                )
+        except Exception as e:
+            logger.error(f"Failed to initialize MCP: {e}")
+            # MCP failure doesn't prevent agent from running
+
     def stop(self) -> None:
         """Stop the agent loop."""
         self._running = False
@@ -357,16 +382,20 @@ class AgentLoop:
     ) -> str:
         """
         Process a message directly (for CLI or cron usage).
-        
+
         Args:
             content: The message content.
             session_key: Session identifier.
             channel: Source channel (for context).
             chat_id: Source chat ID (for context).
-        
+
         Returns:
             The agent's response.
         """
+        # Initialize MCP if not already done
+        if not self.mcp_manager._initialized:
+            await self._initialize_mcp()
+
         msg = InboundMessage(
             channel=channel,
             sender_id="user",

@@ -213,10 +213,27 @@ class ExecToolConfig(BaseModel):
     timeout: int = 60
 
 
+class MCPServerConfig(BaseModel):
+    """Configuration for a single MCP server."""
+    enabled: bool = True
+    transport: str = "http"  # "http" (default) or "sse"
+    url: str = ""  # Server URL (e.g., "http://localhost:8080" for http, "http://localhost:8080/sse" for sse)
+    timeout: int = 30  # Connection timeout in seconds
+    headers: dict[str, str] = Field(default_factory=dict)  # Custom headers (auth, etc.)
+    auto_reconnect: bool = True  # Only for SSE transport
+
+
+class MCPConfig(BaseModel):
+    """MCP client configuration."""
+    enabled: bool = False
+    servers: dict[str, MCPServerConfig] = Field(default_factory=dict)
+
+
 class ToolsConfig(BaseModel):
     """Tools configuration."""
     web: WebToolsConfig = Field(default_factory=WebToolsConfig)
     exec: ExecToolConfig = Field(default_factory=ExecToolConfig)
+    mcp: MCPConfig = Field(default_factory=MCPConfig)
     restrict_to_workspace: bool = False  # If true, restrict all tool access to workspace directory
 
 
